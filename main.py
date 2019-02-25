@@ -1,16 +1,13 @@
-import os, shutil
-from keras import layers
-from keras import models
-from keras import optimizers
-from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
-from keras.preprocessing import image
 from image_classification.model import model
 from sklearn.metrics import roc_curve, auc
-
-
+from image_classification.create_table import add_stats_to_csv
 import numpy as np
 from image_classification.directory_work import get_train_data
+
+
+
+
 
 base_dir = r'C:\Users\Pavel.Nistsiuk\PycharmProjects\people_class'
 
@@ -31,13 +28,16 @@ for i in range(5):
     Y_t = np.concatenate((y_train[:fold_size * i], y_train[fold_size * (i + 1):]))
     X_v = x_train[fold_size * i:fold_size * (i + 1)]
     Y_v = y_train[fold_size * i:fold_size * (i + 1)]
-    pred = model(X_t, Y_t, X_v, Y_v, i)
+
+    pred, time = model(X_t, Y_t, X_v, Y_v, i)
     fpr, tpr, treshholds = roc_curve(Y_v, pred)
     auc_model = auc(fpr, tpr)
     print(str(auc_model))
     file.write(str(auc_model) + '\n')
+    add_stats_to_csv("Conv32 64 128", auc_model, time, i)
     plt.plot([0, 1], [0, 1], 'k--')
     plt.plot(fpr, tpr)
     plt.savefig(str(i) + "_roc_curve.png")
+    plt.close()
 file.close()
 

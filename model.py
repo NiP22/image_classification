@@ -1,16 +1,25 @@
-import os, shutil
 from keras import layers
 from keras import models
-from keras import optimizers
 from keras.preprocessing.image import ImageDataGenerator
 import matplotlib.pyplot as plt
-from keras.preprocessing import image
+import time
 
 
+def timeit(func):
+    def wrapper(*args, **kwargs):
+        t = time.clock()
+        res = func(*args, **kwargs)
+        work_time = time.clock() - t
+        return res, work_time
+    return wrapper
+
+
+
+@timeit
 def model(x_train, y_train, x_val, y_val, i):
-    '''
+
     model = models.Sequential()
-    model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(400, 400, 3)))
+    model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(300, 300, 3)))
     model.add(layers.MaxPooling2D((2, 2)))
     model.add(layers.Conv2D(64, (3, 3), activation='relu'))
     model.add(layers.MaxPooling2D((2, 2)))
@@ -27,7 +36,7 @@ def model(x_train, y_train, x_val, y_val, i):
     model.add(layers.Flatten())
     model.add(layers.Dense(16, activation='relu'))
     model.add(layers.Dense(1, activation='sigmoid'))
-
+    '''
     model.compile(loss='binary_crossentropy',
                   optimizer='adam',
                   metrics=['acc'])
@@ -56,7 +65,7 @@ def model(x_train, y_train, x_val, y_val, i):
     history = model.fit_generator(
         train_generator,
         steps_per_epoch=100,
-        epochs=1,
+        epochs=30,
         validation_data=validation_generator,
         validation_steps=15
     )
