@@ -1,0 +1,4 @@
+Name,Start_of_interval,End_of_interval
+Conv_f1,0.9103942494768641,0.9449637014689232
+Conv_prep,0.5,0.5
+VGG_tune_prep,0.9614108750329116,1.0005610569727306
