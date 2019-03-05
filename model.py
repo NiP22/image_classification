@@ -50,37 +50,57 @@ def timeit(func):
 
 
 @timeit
-def Conv_model(x_train, y_train, x_val, y_val, x_test, i):
+def Conv_model(x_train, y_train, x_val, y_val, x_test, i, model_name,
+               augmentation=0, vgg_prep=0, batch_norm=0, plot=0):
     model = models.Sequential()
-    model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(300, 300, 3)))
+    model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)))
+    if batch_norm:
+        model.add(layers.BatchNormalization())
     model.add(layers.MaxPooling2D((2, 2)))
     model.add(layers.Conv2D(64, (3, 3), activation='relu'))
+    if batch_norm:
+        model.add(layers.BatchNormalization())
     model.add(layers.MaxPooling2D((2, 2)))
     model.add(layers.Conv2D(128, (3, 3), activation='relu'))
+    if batch_norm:
+        model.add(layers.BatchNormalization())
     model.add(layers.MaxPooling2D((2, 2)))
     model.add(layers.Flatten())
     model.add(layers.Dropout(0.5))
     model.add(layers.Dense(512, activation='relu'))
+    if batch_norm:
+        model.add(layers.BatchNormalization)
     model.add(layers.Dense(1, activation='sigmoid'))
-    callbacks = [EarlyStopping(monitor='val_loss', patience=3), ModelCheckpoint(filepath=(str(i) + 'best_preprocess_Conv.h5'),
+    callbacks = [EarlyStopping(monitor='val_loss', patience=8), ModelCheckpoint(filepath=(str(i) + 'best_preprocess_Conv.h5'),
                                                                                 monitor='val_loss',
                                                                                 save_best_only=True)]
 
     model.compile(loss='binary_crossentropy',
-                  optimizer=optimizers.RMSprop(lr=1e-4),
+                  optimizer=optimizers.RMSprop(lr=1e-5),
                   metrics=[custom_f1, 'acc'])
-    model_json = model.to_json()
-    with open("Conv.json", 'w') as file:
-        file.write(model_json)
-    x_train = preprocess_input(x_train)
-    x_val = preprocess_input(x_val)
-    datagen = ImageDataGenerator(
-        width_shift_range=0.25,
-        height_shift_range=0.25,
-        zoom_range=0.25,
-        fill_mode='nearest'
-    )
-    train_generator = datagen.flow(
+
+    if vgg_prep:
+        x_test = preprocess_input(x_test)
+        x_val = preprocess_input(x_val)
+        x_train = preprocess_input(x_train)
+    else:
+        x_test /= 255
+        x_train /= 255
+        x_val /= 255
+    if augmentation:
+        datagen_augment = ImageDataGenerator(
+            rotation_range=40,
+            width_shift_range=0.15,
+            height_shift_range=0.15,
+            shear_range=0.2,
+            zoom_range=0.2,
+            fill_mode='nearest'
+        )
+    else:
+        datagen_augment = ImageDataGenerator()
+
+    datagen = ImageDataGenerator()
+    train_generator = datagen_augment.flow(
         x_train,
         y_train,
         shuffle=True,
@@ -92,57 +112,44 @@ def Conv_model(x_train, y_train, x_val, y_val, x_test, i):
         shuffle=True,
         batch_size=20
     )
-    pred_generator = datagen.fit(x_val)
-
     history = model.fit_generator(
         train_generator,
-        steps_per_epoch=100,
-        epochs=20,
+        verbose=2,
+        steps_per_epoch=100,#100
+        epochs=35,#35
         validation_data=validation_generator,
-        validation_steps=15,
+        validation_steps=15,#15
         callbacks=callbacks
     )
-
-    acc = history.history['acc']
-    val_acc = history.history['val_acc']
-    #f1_acc = history.history['custom_f1']
-    #val_f1_acc = history.history['val_custom_f1']
-    loss = history.history['loss']
-    val_loss = history.history['val_loss']
-
-    epochs = range(len(acc))
-
-    plt.plot(epochs, acc, 'bo', label='Training acc')
-    plt.plot(epochs, val_acc, 'b', label='Validation acc')
-    plt.title('Training and validation accuracy')
-    plt.legend()
-    plt.savefig(str(i) + "Conv_acc.png")
-    plt.close()
-    '''
-    plt.plot(epochs, f1_acc, 'bo', label='Training F1 acc')
-    plt.plot(epochs, val_f1_acc, 'b', label='F1 acc')
-    plt.title('F1 accuracy')
-    plt.legend()
-    plt.savefig(str(i) + "Conv_acc_F1.png")
-    plt.close()
-    '''
-    plt.plot(epochs, loss, 'bo', label='Training loss')
-    plt.plot(epochs, val_loss, 'b', label='Validation loss')
-    plt.title('Training and validation loss')
-    plt.legend()
-    plt.savefig(str(i) + "Conv_loss.png")
-    plt.close()
+    if plot:
+        acc = history.history['acc']
+        val_acc = history.history['val_acc']
+        loss = history.history['loss']
+        val_loss = history.history['val_loss']
+        epochs = range(len(acc))
+        plt.plot(epochs, acc, 'bo', label='Training acc')
+        plt.plot(epochs, val_acc, 'b', label='Validation acc')
+        plt.title('Training and validation accuracy')
+        plt.legend()
+        plt.savefig(str(i) + "Conv_acc.png")
+        plt.plot(epochs, loss, 'bo', label='Training loss')
+        plt.plot(epochs, val_loss, 'b', label='Validation loss')
+        plt.title('Training and validation loss')
+        plt.legend()
+        plt.savefig(str(i) + "Conv_loss.png")
+        plt.close()
     item = x_val[0].reshape(1, x_val[0].shape[0], x_val[0].shape[1], x_val[0].shape[2])
     tmp, time_on_single = make_prediction(model, item)
-    x_test = preprocess_input(x_test)
+    save_model(model, model_name)
     return model.predict(x_test), time_on_single
 
 
 @timeit
-def vgg_fine_tune(x_train, y_train, x_val, y_val, x_test, i):
+def vgg_fine_tune(x_train, y_train, x_val, y_val, x_test, i, model_name,
+                  augmentation=0, vgg_prep=0, batch_norm=0, plot=0):
     conv_base = VGG16(weights='imagenet',
                       include_top=False,
-                      input_shape=(300, 300, 3))
+                      input_shape=(224, 224, 3))
     conv_base.trainable = True
     set_trainable = False
     for layer in conv_base.layers:
@@ -152,35 +159,46 @@ def vgg_fine_tune(x_train, y_train, x_val, y_val, x_test, i):
             layer.trainable = True
         else:
             layer.trainable = False
-
-
     model = models.Sequential()
     model.add(conv_base)
     model.add(layers.Flatten())
-    model.add(layers.Dense(256, activation='relu'))
+    if batch_norm:
+        model.add(layers.BatchNormalization())
+    model.add(layers.Dense(512, activation='relu'))
     model.add(layers.Dense(1, activation='sigmoid'))
-    model.summary()
-    callbacks = [EarlyStopping(monitor='val_loss', patience=4), ModelCheckpoint(filepath=(str(i) + 'best_fine_tuned_vgg_prep.h5'),
+    callbacks = [EarlyStopping(monitor='val_loss', patience=10), ModelCheckpoint(filepath=(str(i) + model_name + '.h5'),
                                                                                 monitor='val_loss',
                                                                                 save_best_only=True)]
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.RMSprop(lr=1e-4),
                   metrics=['acc'])
-
-    x_train = preprocess_input(x_train)
-    x_val = preprocess_input(x_val)
-    datagen = ImageDataGenerator(
-        width_shift_range=0.25,
-        height_shift_range=0.25,
-        zoom_range=0.25,
-        fill_mode='nearest'
-    )
-    train_generator = datagen.flow(
+    if vgg_prep:
+        x_train = preprocess_input(x_train)
+        x_val = preprocess_input(x_val)
+        x_test = preprocess_input(x_test)
+    else:
+        x_train /= 255
+        x_val /= 255
+        x_test /= 255
+    if augmentation:
+        datagen_augment = ImageDataGenerator(
+            rotation_range=40,
+            width_shift_range=0.15,
+            height_shift_range=0.15,
+            shear_range=0.2,
+            zoom_range=0.2,
+            fill_mode='nearest'
+        )
+    else:
+        datagen_augment = ImageDataGenerator()
+    train_generator = datagen_augment.flow(
         x_train,
         y_train,
         shuffle=True,
         batch_size=20
     )
+
+    datagen = ImageDataGenerator()
     validation_generator = datagen.flow(
         x_val,
         y_val,
@@ -190,40 +208,47 @@ def vgg_fine_tune(x_train, y_train, x_val, y_val, x_test, i):
 
     history = model.fit_generator(
         train_generator,
+        verbose=2,
         steps_per_epoch=100,#100
-        epochs=20,#20
+        epochs=30,#30
         validation_data=validation_generator,
         validation_steps=15,#15
         callbacks=callbacks
     )
+    if plot:
+        acc = history.history['acc']
+        val_acc = history.history['val_acc']
+        loss = history.history['loss']
+        val_loss = history.history['val_loss']
+        epochs = range(len(acc))
+        plt.plot(epochs, acc, 'bo', label='Training acc')
+        plt.plot(epochs, val_acc, 'b', label='Validation acc')
+        plt.title('Training and validation accuracy')
+        plt.legend()
+        plt.savefig(str(i) + "VGG_fine_tune_acc.png")
+        plt.close()
 
-    acc = history.history['acc']
-    val_acc = history.history['val_acc']
-    loss = history.history['loss']
-    val_loss = history.history['val_loss']
-
-    epochs = range(len(acc))
-
-    plt.plot(epochs, acc, 'bo', label='Training acc')
-    plt.plot(epochs, val_acc, 'b', label='Validation acc')
-    plt.title('Training and validation accuracy')
-    plt.legend()
-    plt.savefig(str(i) + "VGG_fine_tune_acc.png")
-    plt.close()
-
-    plt.plot(epochs, loss, 'bo', label='Training loss')
-    plt.plot(epochs, val_loss, 'b', label='Validation loss')
-    plt.title('Training and validation loss')
-    plt.legend()
-    plt.savefig(str(i) + "VGG_fine_tune_loss.png")
-    plt.close()
+        plt.plot(epochs, loss, 'bo', label='Training loss')
+        plt.plot(epochs, val_loss, 'b', label='Validation loss')
+        plt.title('Training and validation loss')
+        plt.legend()
+        plt.savefig(str(i) + "VGG_fine_tune_loss.png")
+        plt.close()
 
     item = x_val[0].reshape(1, x_val[0].shape[0], x_val[0].shape[1], x_val[0].shape[2])
     tmp, time_on_single = make_prediction(model, item)
-    x_test = preprocess_input(x_test)
+    save_model(model, model_name + str(i))
     return model.predict(x_test), time_on_single
 
 
 @timeit
 def make_prediction(model, item):
     return model.predict(item)
+
+
+def save_model(model, name):
+    model_json = model.to_json()
+    with open(name + ".json", "w") as json_file:
+        json_file.write(model_json)
+    json_file.close()
+    model.save_weights(name + ".h5")

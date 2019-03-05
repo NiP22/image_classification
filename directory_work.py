@@ -11,12 +11,12 @@ def get_train_data(base_dir):
     x = list()
     y = list()
     for img_path in fnames:
-        tmp = image.img_to_array(image.load_img(img_path, target_size=(300, 300)))
+        tmp = image.img_to_array(image.load_img(img_path, target_size=(224, 224)))
         x.append(tmp)
         y.append(0)
     fnames = [os.path.join(train_pos_dir, fname) for fname in os.listdir(train_pos_dir)]
     for img_path in fnames:
-        tmp = image.img_to_array(image.load_img(img_path, target_size=(300, 300)))
+        tmp = image.img_to_array(image.load_img(img_path, target_size=(224, 224)))
         x.append(tmp)
         y.append(1)
     return np.array(x), np.array(y)
