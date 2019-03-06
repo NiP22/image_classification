@@ -50,10 +50,10 @@ def timeit(func):
 
 
 @timeit
-def Conv_model(x_train, y_train, x_val, y_val, x_test, i, model_name,
+def Conv_model(x_train, y_train, x_val, y_val, i, model_name,
                augmentation=0, vgg_prep=0, batch_norm=0, plot=0):
     model = models.Sequential()
-    model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(224, 224, 3)))
+    model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(300, 300, 3)))
     if batch_norm:
         model.add(layers.BatchNormalization())
     model.add(layers.MaxPooling2D((2, 2)))
@@ -65,26 +65,32 @@ def Conv_model(x_train, y_train, x_val, y_val, x_test, i, model_name,
     if batch_norm:
         model.add(layers.BatchNormalization())
     model.add(layers.MaxPooling2D((2, 2)))
-    model.add(layers.Flatten())
-    model.add(layers.Dropout(0.5))
-    model.add(layers.Dense(512, activation='relu'))
+    model.add(layers.Conv2D(256, (3, 3), activation='relu'))
     if batch_norm:
-        model.add(layers.BatchNormalization)
+        model.add(layers.BatchNormalization())
+    model.add(layers.MaxPooling2D((2, 2)))
+    model.add(layers.Conv2D(256, (3, 3), activation='relu'))
+    if batch_norm:
+        model.add(layers.BatchNormalization())
+    model.add(layers.MaxPooling2D((2, 2)))
+    model.add(layers.Flatten())
+    model.add(layers.Dense(512, activation='relu'))
+    model.add(layers.Dropout(0.4))
+    if batch_norm:
+        model.add(layers.BatchNormalization())
     model.add(layers.Dense(1, activation='sigmoid'))
-    callbacks = [EarlyStopping(monitor='val_loss', patience=8), ModelCheckpoint(filepath=(str(i) + 'best_preprocess_Conv.h5'),
+    callbacks = [EarlyStopping(monitor='val_loss', patience=8), ModelCheckpoint(filepath=(str(i) + model_name + '.h5'),
                                                                                 monitor='val_loss',
                                                                                 save_best_only=True)]
 
     model.compile(loss='binary_crossentropy',
                   optimizer=optimizers.RMSprop(lr=1e-5),
-                  metrics=[custom_f1, 'acc'])
+                  metrics=['acc'])
 
     if vgg_prep:
-        x_test = preprocess_input(x_test)
         x_val = preprocess_input(x_val)
         x_train = preprocess_input(x_train)
     else:
-        x_test /= 255
         x_train /= 255
         x_val /= 255
     if augmentation:
@@ -114,7 +120,7 @@ def Conv_model(x_train, y_train, x_val, y_val, x_test, i, model_name,
     )
     history = model.fit_generator(
         train_generator,
-        verbose=2,
+        verbose=1,
         steps_per_epoch=100,#100
         epochs=35,#35
         validation_data=validation_generator,
@@ -141,11 +147,11 @@ def Conv_model(x_train, y_train, x_val, y_val, x_test, i, model_name,
     item = x_val[0].reshape(1, x_val[0].shape[0], x_val[0].shape[1], x_val[0].shape[2])
     tmp, time_on_single = make_prediction(model, item)
     save_model(model, model_name)
-    return model.predict(x_test), time_on_single
+    return model.predict(x_val), time_on_single
 
 
 @timeit
-def vgg_fine_tune(x_train, y_train, x_val, y_val, x_test, i, model_name,
+def vgg_fine_tune(x_train, y_train, x_val, y_val, i, model_name,
                   augmentation=0, vgg_prep=0, batch_norm=0, plot=0):
     conv_base = VGG16(weights='imagenet',
                       include_top=False,
@@ -175,11 +181,9 @@ def vgg_fine_tune(x_train, y_train, x_val, y_val, x_test, i, model_name,
     if vgg_prep:
         x_train = preprocess_input(x_train)
         x_val = preprocess_input(x_val)
-        x_test = preprocess_input(x_test)
     else:
         x_train /= 255
         x_val /= 255
-        x_test /= 255
     if augmentation:
         datagen_augment = ImageDataGenerator(
             rotation_range=40,
@@ -238,7 +242,7 @@ def vgg_fine_tune(x_train, y_train, x_val, y_val, x_test, i, model_name,
     item = x_val[0].reshape(1, x_val[0].shape[0], x_val[0].shape[1], x_val[0].shape[2])
     tmp, time_on_single = make_prediction(model, item)
     save_model(model, model_name + str(i))
-    return model.predict(x_test), time_on_single
+    return model.predict(x_val), time_on_single
 
 
 @timeit
