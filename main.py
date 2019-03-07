@@ -3,7 +3,7 @@ from image_classification.model import Conv_model, vgg_fine_tune
 from sklearn.metrics import roc_curve, roc_auc_score
 from image_classification.create_table import add_stats_to_csv
 import numpy as np
-from image_classification.directory_work import get_train_data
+from image_classification.directory_work import get_train_data, get_train_data_gray
 from statsmodels.stats.weightstats import _tconfint_generic
 from math import sqrt
 import pandas as pd
@@ -40,23 +40,25 @@ def kfold_on_model(model, model_name, x_train, y_train, augmentation=0, vgg_prep
     auc_scores = np.array(auc_scores)
     mean_std = auc_scores.std(ddof=1) / sqrt(len(auc_scores))
     beg, end = _tconfint_generic(auc_scores.mean(), mean_std, len(auc_scores) - 1, 0.05, 'two-sided')
-    df = pd.read_csv('Confidence intervals.csv')
+    df = pd.read_csv('Confidence_intervals.csv')
     new_item = pd.DataFrame([[model_name, beg, end]],
                             columns=['Name', 'Start_of_interval', 'End_of_interval'])
     df = pd.concat([df, new_item])
-    df.to_csv("Confidence intervals.csv", index=False)
+    df.to_csv("Confidence_intervals.csv", index=False)
 
 
 base_dir = r'C:\Users\Pavel.Nistsiuk\PycharmProjects\people_class'
 
-x_train, y_train = get_train_data(base_dir)
+x_train, y_train = get_train_data_gray(base_dir)
 indexes = np.arange(y_train.shape[0])
 np.random.shuffle(indexes)
 for i_old, i_new in enumerate(indexes):
     x_train[i_old], y_train[i_old] = x_train[i_new], y_train[i_new]
 
 
+kfold_on_model(Conv_model, "conv_gray_Augment_simplePrep_BN", x_train, y_train,
+               augmentation=1, vgg_prep=0, batch_norm=1)
 
-kfold_on_model(Conv_model, "conv_noAugment_simplePrep_noBN", x_train, y_train,
-               augmentation=1, vgg_prep=1, batch_norm=1)
 
+kfold_on_model(Conv_model, "conv_gray_noAugment_simplePrep_BN", x_train, y_train,
+               augmentation=0, vgg_prep=0, batch_norm=1)

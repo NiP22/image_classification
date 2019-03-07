@@ -53,7 +53,7 @@ def timeit(func):
 def Conv_model(x_train, y_train, x_val, y_val, i, model_name,
                augmentation=0, vgg_prep=0, batch_norm=0, plot=0):
     model = models.Sequential()
-    model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(300, 300, 3)))
+    model.add(layers.Conv2D(32, (3, 3), activation='relu', input_shape=(300, 300, 1)))
     if batch_norm:
         model.add(layers.BatchNormalization())
     model.add(layers.MaxPooling2D((2, 2)))
@@ -79,7 +79,7 @@ def Conv_model(x_train, y_train, x_val, y_val, i, model_name,
     if batch_norm:
         model.add(layers.BatchNormalization())
     model.add(layers.Dense(1, activation='sigmoid'))
-    callbacks = [EarlyStopping(monitor='val_loss', patience=8), ModelCheckpoint(filepath=(str(i) + model_name + '.h5'),
+    callbacks = [EarlyStopping(monitor='val_loss', patience=15), ModelCheckpoint(filepath=(str(i) + model_name + '.h5'),
                                                                                 monitor='val_loss',
                                                                                 save_best_only=True)]
 
@@ -146,7 +146,7 @@ def Conv_model(x_train, y_train, x_val, y_val, i, model_name,
         plt.close()
     item = x_val[0].reshape(1, x_val[0].shape[0], x_val[0].shape[1], x_val[0].shape[2])
     tmp, time_on_single = make_prediction(model, item)
-    save_model(model, model_name)
+    save_model(model, model_name + str(i))
     return model.predict(x_val), time_on_single
 
 
@@ -155,7 +155,7 @@ def vgg_fine_tune(x_train, y_train, x_val, y_val, i, model_name,
                   augmentation=0, vgg_prep=0, batch_norm=0, plot=0):
     conv_base = VGG16(weights='imagenet',
                       include_top=False,
-                      input_shape=(224, 224, 3))
+                      input_shape=(300, 300, 3))
     conv_base.trainable = True
     set_trainable = False
     for layer in conv_base.layers:
@@ -172,7 +172,7 @@ def vgg_fine_tune(x_train, y_train, x_val, y_val, i, model_name,
         model.add(layers.BatchNormalization())
     model.add(layers.Dense(512, activation='relu'))
     model.add(layers.Dense(1, activation='sigmoid'))
-    callbacks = [EarlyStopping(monitor='val_loss', patience=10), ModelCheckpoint(filepath=(str(i) + model_name + '.h5'),
+    callbacks = [EarlyStopping(monitor='val_loss', patience=15), ModelCheckpoint(filepath=(str(i) + model_name + '.h5'),
                                                                                 monitor='val_loss',
                                                                                 save_best_only=True)]
     model.compile(loss='binary_crossentropy',
